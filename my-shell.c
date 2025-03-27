@@ -8,9 +8,11 @@
 #define MAX_ARGS 64
 
 // Execute a single command
+// Execute a single command with background support
 void execute_command(char *cmd) {
     char *args[MAX_ARGS];
     int i = 0;
+    int background = 0;
 
     // Tokenize the command into arguments
     args[i] = strtok(cmd, " \t\n");
@@ -19,27 +21,32 @@ void execute_command(char *cmd) {
         args[i] = strtok(NULL, " \t\n");
     }
 
-    if (args[0] == NULL) return;  // Empty command
+    if (i > 0 && strcmp(args[i - 1], "&") == 0) {
+        background = 1;
+        args[i - 1] = NULL;  // Remove '&' from arguments
+    }
 
-    // Exit command to terminate the shell
+    if (args[0] == NULL) return;
+
     if (strcmp(args[0], "exit") == 0) {
         printf("Exiting shell...\n");
         exit(0);
     }
 
-    // Fork and execute the command
     pid_t pid = fork();
     if (pid < 0) {
         perror("fork failed");
     } else if (pid == 0) {
-        // Child process: execute the command
         if (execvp(args[0], args) == -1) {
             perror("execvp failed");
             exit(EXIT_FAILURE);
         }
     } else {
-        // Parent process: wait for the child to complete
-        wait(NULL);
+        if (!background) {
+            wait(NULL);
+        } else {
+            printf("Started background process with PID %d\n", pid);
+        }
     }
 }
 

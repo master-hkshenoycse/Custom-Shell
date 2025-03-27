@@ -18,6 +18,66 @@ void handle_sigint(int sig) {
     fflush(stdout);
 }
 
+// Function to execute a command with redirection
+void execute_redirection(char *cmd) {
+    char *args[MAX_ARGS];
+    int i = 0;
+    int in_fd = -1, out_fd = -1, append = 0;
+
+    // Check for redirection symbols
+    char *input_file = strstr(cmd, "<");
+    char *output_file = strstr(cmd, ">");
+    
+    if (input_file) {
+        *input_file = '\0'; // Split command from input redirection
+        input_file = strtok(input_file + 1, " \t\n");
+    }
+    if (output_file) {
+        append = (*(output_file + 1) == '>') ? 1 : 0;
+        *output_file = '\0'; // Split command from output redirection
+        output_file = strtok(output_file + 1 + append, " \t\n");
+    }
+
+    // Tokenize command into arguments
+    args[i] = strtok(cmd, " \t\n");
+    while (args[i] != NULL) {
+        i++;
+        args[i] = strtok(NULL, " \t\n");
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork failed");
+    } else if (pid == 0) {
+        if (input_file) {
+            in_fd = open(input_file, O_RDONLY);
+            if (in_fd < 0) {
+                perror("Error opening input file");
+                exit(1);
+            }
+            dup2(in_fd, STDIN_FILENO);
+            close(in_fd);
+        }
+        if (output_file) {
+            out_fd = open(output_file, O_WRONLY | O_CREAT | (append ? O_APPEND : O_TRUNC), 0644);
+            if (out_fd < 0) {
+                perror("Error opening output file");
+                exit(1);
+            }
+            dup2(out_fd, STDOUT_FILENO);
+            close(out_fd);
+        }
+
+        if (execvp(args[0], args) == -1) {
+            perror("execvp failed");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        wait(NULL);
+    }
+}
+
+
 // Execute piped commands
 void execute_piped_commands(char *cmd) {
     int pipefd[2];

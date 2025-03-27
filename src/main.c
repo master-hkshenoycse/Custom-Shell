@@ -18,6 +18,51 @@ void handle_sigint(int sig) {
     fflush(stdout);
 }
 
+#define MAX_HISTORY 10
+char *history[MAX_HISTORY];
+int history_count = 0;
+
+void add_to_history(char *cmd) {
+    if (history_count < MAX_HISTORY) {
+        history[history_count++] = strdup(cmd);
+    } else {
+        free(history[0]);
+        for (int i = 1; i < MAX_HISTORY; i++) {
+            history[i - 1] = history[i];
+        }
+        history[MAX_HISTORY - 1] = strdup(cmd);
+    }
+}
+
+void show_history() {
+    for (int i = 0; i < history_count; i++) {
+        printf("%d: %s\n", i + 1, history[i]);
+    }
+}
+
+void execute_builtin(char *cmd) {
+    if (strcmp(cmd, "exit") == 0) {
+        printf("Exiting shell...\n");
+        exit(0);
+    } else if (strcmp(cmd, "pwd") == 0) {
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            printf("%s\n", cwd);
+        } else {
+            perror("getcwd failed");
+        }
+    } else if (strncmp(cmd, "cd", 2) == 0) {
+        char *dir = strtok(cmd + 3, " \t\n");
+        if (dir == NULL) dir = getenv("HOME");
+        if (chdir(dir) != 0) {
+            perror("chdir failed");
+        }
+    } else {
+        execute_redirection(cmd);
+    }
+}
+
+
 // Function to execute a command with redirection
 void execute_redirection(char *cmd) {
     char *args[MAX_ARGS];
@@ -170,20 +215,24 @@ int main() {
     char input[MAX_INPUT];
 
     while (1) {
-        // Print shell prompt
         printf("myshell> ");
         fflush(stdout);
-
-        // Read input from the user
-        if (fgets(input, sizeof(input), stdin) == NULL) {
-            break;
-        }
-
-        // Remove trailing newline (if any)
+        
+        if (fgets(input, sizeof(input), stdin) == NULL) break;
         input[strcspn(input, "\n")] = '\0';
 
-        // Execute the command
-        execute_command(input);
+        if (strcmp(input, "history") == 0) {
+            show_history();
+            continue;
+        }
+
+        add_to_history(input);
+
+        if (strchr(input, '|')) {
+            execute_piped_commands(input);
+        } else {
+            execute_builtin(input);
+        }
     }
 
     return 0;

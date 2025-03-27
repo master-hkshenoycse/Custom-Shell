@@ -7,6 +7,11 @@
 #define MAX_INPUT 1024
 #define MAX_ARGS 64
 
+// Signal handler to reap zombie processes
+void handle_sigchld(int sig) {
+    while (waitpid(-1, NULL, WNOHANG) > 0);
+}
+
 // Execute a single command
 // Execute a single command with background support
 void execute_command(char *cmd) {
@@ -51,6 +56,10 @@ void execute_command(char *cmd) {
 }
 
 int main() {
+
+    // Register signal handler for SIGCHLD
+    signal(SIGCHLD, handle_sigchld);
+
     char input[MAX_INPUT];
 
     while (1) {

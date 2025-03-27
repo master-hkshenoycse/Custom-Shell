@@ -12,6 +12,45 @@ void handle_sigchld(int sig) {
     while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
+// Execute piped commands
+void execute_piped_commands(char *cmd) {
+    int pipefd[2];
+    pid_t pid;
+    int fd_in = 0;
+
+    char *command = strtok(cmd, "|");
+    while (command != NULL) {
+        pipe(pipefd);
+        pid = fork();
+
+        if (pid == 0) {
+            dup2(fd_in, 0); // Redirect input from previous pipe
+            if (strtok(NULL, "|") != NULL) {
+                dup2(pipefd[1], 1); // Redirect output to next pipe
+            }
+            close(pipefd[0]);
+
+            char *args[MAX_ARGS];
+            int i = 0;
+            args[i] = strtok(command, " \t\n");
+            while (args[i] != NULL) {
+                i++;
+                args[i] = strtok(NULL, " \t\n");
+            }
+            if (execvp(args[0], args) == -1) {
+                perror("execvp failed");
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            wait(NULL);
+            close(pipefd[1]);
+            fd_in = pipefd[0]; // Save the read end of the pipe
+            command = strtok(NULL, "|");
+        }
+    }
+}
+
+
 // Execute a single command
 // Execute a single command with background support
 void execute_command(char *cmd) {

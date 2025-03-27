@@ -12,6 +12,12 @@ void handle_sigchld(int sig) {
     while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
+// Signal handler for SIGINT (Ctrl+C)
+void handle_sigint(int sig) {
+    printf("\nReceived SIGINT. Use 'exit' to quit.\nmyshell> ");
+    fflush(stdout);
+}
+
 // Execute piped commands
 void execute_piped_commands(char *cmd) {
     int pipefd[2];
@@ -98,6 +104,8 @@ int main() {
 
     // Register signal handler for SIGCHLD
     signal(SIGCHLD, handle_sigchld);
+
+    signal(SIGINT, handle_sigint);  // Handle Ctrl+C
 
     char input[MAX_INPUT];
 
